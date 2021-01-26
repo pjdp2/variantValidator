@@ -20,9 +20,11 @@ Protein variant format:
 
 
 
-
+import requests #this is needed to talk to the API
 import re  # needed to split the string with multiple delimiters
 import json  # needed to create json object
+
+
 class Ensembl_reference_dict:
     # initiator construct that creates a dictionary attribute when an instance of
     # the class is made.
@@ -86,9 +88,53 @@ Ensembl_reference.add_entry(
 #variant_accession = "NP_000079.2:p.(M1G)"
 # print(variant_accession)
 
-# input variant
-variant_accession = input("Please input a RefSeq protein variant: ")
+def make_request(genome_build,variant):
+    base_url = 'https://rest.variantvalidator.org/VariantValidator/variantvalidator/'
+    content_type = '%3ET/all?content-type=application%2Fjson'
+    request = base_url + genome_build + '/' + variant + content_type
+    return request
+
+#Requests user input for the genome build
+genome_build = input('Please select genome build: (a) GRCh37 or (b) GRCh38 ')
+#Prevents user from proceeding without picking correctly 
+while not (genome_build == 'a' or genome_build == 'b'):
+    print('Genome build not supported.')
+    genome_build = input('Please select genome build: (a) GRCh37 or (b) GRCh38 ')
+
+#The above then instructs on which build to use and the choice is stored in the genome variable
+if genome_build == "a":
+    genome = 'GRCh37'
+elif genome_build == "b":
+    genome = 'GRCh38'
+
+#NM_000088.3:c.589G
+variant_id = input('Please input a RefSeq variant descriptor: ')
+
+while not ('NM_' in variant_id): 
+    print('Variant type not supported.')
+    variant_id = input('Please input a RefSeq variant descriptor: ')
+
+#Makes the request
+request = make_request(genome, variant_id)
+print(f'Requesting data from : {request}')
+response = requests.get(request)
+
+#Creates a python dictionary object for the returned JSON
+response_dictionary = response.json()
+
+#Finds the original variant description from the search to use as a key
+keys = list(response_dictionary.keys())
+variant_description = keys[0]
+
+#Extracts the variant_accession variables into a smaller dictionary
+variant_accession_alternatives = response_dictionary[variant_description]['hgvs_predicted_protein_consequence']
+
+# Extracts a single variant_accession protein descriptor, key can be swapped for alternatives:
+# {'lrg_slr': 'LRG_1p1:p.(G197C)', 'lrg_tlr': 'LRG_1p1:p.(Gly197Cys)', 'slr': 'NP_000079.2:p.(G197C)', 'tlr': 'NP_000079.2:p.(Gly197Cys)'} 
+variant_accession = variant_accession_alternatives['slr']
 variant_accession = str(variant_accession)
+print(variant_accession)
+
 
 # Check variant is formatted correctly
 protein_HVGS = re.compile(

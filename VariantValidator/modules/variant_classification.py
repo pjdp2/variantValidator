@@ -4,26 +4,30 @@ Created on Tue Jan  5 17:13:08 2021
 @author: naomi
 @author: Ali
 """
+"""
+Information in the Ensembl_reference_dict is from Ensembl, available at the following URL:
+https://m.ensembl.org/info/genome/variation/prediction/predicted_data.html
+The information is the same as the output for sequence ontology terms from the 
+Ensembl VEP API
+"""
 
 """
+Variant format:
+    NM_000088.3:c.589G
 Protein variant format:
     NP_000079.2:p.(Gly197Cys)
     NP_000079.2:p.(G197C)
 """
 
 # Import modules
+import requests #this is needed to talk to the API
+import re  # needed to split the string with multiple delimiters
+import json  # needed to create json object
 
 # Define Ensembl Reference Dictionary
 # Object that at the moment simply creates a dictionary and has capacity to
 # add further entries. At the moment this is a simple repository which we
 # can use in later editions to provide/populate further variant information.
-
-
-
-import requests #this is needed to talk to the API
-import re  # needed to split the string with multiple delimiters
-import json  # needed to create json object
-
 
 class Ensembl_reference_dict:
     # initiator construct that creates a dictionary attribute when an instance of
@@ -107,7 +111,7 @@ if genome_build == "a":
 elif genome_build == "b":
     genome = 'GRCh38'
 
-#NM_000088.3:c.589G
+#Example input : NM_000088.3:c.589G
 variant_id = input('Please input a RefSeq variant descriptor: ')
 
 while not ('NM_' in variant_id): 
@@ -203,3 +207,21 @@ SO_terms_output = json.dumps(
         ',',
         ': '))
 print(SO_terms_output)
+
+
+# <LICENSE>
+# Copyright (C) 2021 VariantValidator Contributors
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# </LICENSE>

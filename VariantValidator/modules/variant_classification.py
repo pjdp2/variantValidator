@@ -96,7 +96,7 @@ comment) should be updated to handle the input object
 # Define request to Variant Validator API
 def make_request(genome_build,variant):
     base_url = 'https://rest.variantvalidator.org/VariantValidator/variantvalidator/'
-    content_type = '%3ET/all?content-type=application%2Fjson'
+    content_type = '/all?content-type=application%2Fjson'
     request = base_url + genome_build + '/' + variant + content_type
     return request
 

@@ -26,6 +26,7 @@ version = vvdb_2022_04
 [seqrepo]
 version = VV_SR_2022_02/master
 location = /PATH/TO/SEQREPO
+require_threading = False
 
 [postgres]
 host = localhost

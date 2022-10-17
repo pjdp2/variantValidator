@@ -135,7 +135,7 @@ To fill this database, download the gzipped uta genetics database, and upload it
 ***Essential Step: check [here](https://www528.lamp.le.ac.uk/vvdata/vvta/) and make sure you download and install the most up-to-date version***
 
 ```
-$ wget --output-document=VVTA_2022_02.noseq.psql.gz https://www528.lamp.le.ac.uk/vvdata/vvta/VVTA_2022_02.noseq.psql.gz
+$ wget --output-document=VVTA_2022_02.noseq.psql.gz https://www528.lamp.le.ac.uk/vvdata/vvta/VVTA_2022_02_noseq.sql.gz
 $ gzip -cdq VVTA_2022_02.noseq.psql.gz | psql -U <USER> -v ON_ERROR_STOP=0 -d vvta -Eae
 ```
 

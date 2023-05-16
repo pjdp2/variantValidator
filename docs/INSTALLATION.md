@@ -167,6 +167,18 @@ $ gzip -cdq vvta_2022_11.1_no_seq.sql.gz | psql -h localhost -U uta_admin -W -v 
 
 ```
 
+Few useful Postgres commands
+
+```psql
+# view schemas
+vvta=> \dn
+
+# view tables of schema
+vvta=> \dt+ vvta_2022_11_1.*;
+
+vvta=> SELECT hgnc_id FROM vvta_2022_11_1.gene LIMIT 10;
+```
+
 ## Configuration
 
 Before using VariantValidator some configuration is required, as described in the [Manual](MANUAL.md).

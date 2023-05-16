@@ -94,6 +94,17 @@ $ mysql validator < validator_2021-07-21.sql -u HOST -p
 
 See the [Manual](MANUAL.md) for instructions on updating this database, which should be done regularly.
 
+```mysql
+# a few useful commands once pre-populated database downloaded to MYSQL
+
+mysql> SHOW GRANTS FOR '<USER>'@'localhost';
+mysql> show databases;
+mysql> use <database>;
+mysql> show tables;
+mysql> describe <table>;
+mysql> select * from LRG_transcripts LIMIT 3;
+```
+
 If you wish to test your installation using pytest (see below) we recommend that you do this before updating the database. 
 
 ## Setting up Seqrepo (SQLite >=3.8)
@@ -117,17 +128,31 @@ where /path/to/seqrepo should be where you install the database e.g. /Users/Shar
 
 You will need to install a local version of the VVTA database. 
 
+```psql
+ # When you install PostgreSQL a default admin user 
+ # “postgres” is created by the default. 
+ # You must use it to log-in to your PostgreSQL database for the first time.
+
+$ sudo -u postgres psql
+postgres=# \conninfo
+postgres=# \l
+
+# And to see a list of all the users with their 
+# privileges use \du command.
+
+postgres=# \du
+```
+
 First create the database and a user account:
 
-```
-psql
+```psql
 CREATE ROLE <USER> WITH CREATEDB;
 ALTER ROLE <USER> WITH LOGIN;
 ALTER ROLE <USER> WITH PASSWORD '<password>';
 CREATE DATABASE vvta WITH OWNER=<USER> TEMPLATE=template0;
 ```
 Where:
-- \<USER\> should be a user-name e.g. uta_admin
+- \<USER\> should be a user-name e.g. uta_admin. [I have found only uta_admin works]
 - password is a unique password for user
 
 To fill this database, download the gzipped uta genetics database, and upload it into psql.
@@ -137,6 +162,9 @@ To fill this database, download the gzipped uta genetics database, and upload it
 ```
 $ wget --output-document=VVTA_2022_02.noseq.psql.gz https://www528.lamp.le.ac.uk/vvdata/vvta/VVTA_2022_02_noseq.sql.gz
 $ gzip -cdq VVTA_2022_02.noseq.psql.gz | psql -U <USER> -v ON_ERROR_STOP=0 -d vvta -Eae
+OR
+$ gzip -cdq vvta_2022_11.1_no_seq.sql.gz | psql -h localhost -U uta_admin -W -v ON_ERROR_STOP=0 -d vvta -Eae
+
 ```
 
 ## Configuration

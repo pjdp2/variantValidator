@@ -21,10 +21,10 @@ database = validator
 port = 3306
 user = USERNAME
 password = PASSWORD
-version = vvdb_2022_04
+version = vvdb_2022_11
 
 [seqrepo]
-version = VV_SR_2022_02/master
+version = VV_SR_2022_11/master
 location = /PATH/TO/SEQREPO
 require_threading = False
 
@@ -32,9 +32,9 @@ require_threading = False
 host = localhost
 database = vvta
 port = 5432
-version = vvta_2022_02
-user = USERNAME
-password = PASSWORD
+version = vvta_2022_11_1 (corresponds to earlier command: '$ wget --output-document=')
+user = USERNAME (if used uta_admin enter here)
+password = PASSWORD (url encoding and special characters - either omit special characters or encode)
 
 [logging]
 log = True

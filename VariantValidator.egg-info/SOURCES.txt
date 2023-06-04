@@ -39,7 +39,6 @@ VariantValidator/modules/gapped_mapping.py
 VariantValidator/modules/hgvs_utils.py
 VariantValidator/modules/liftover.py
 VariantValidator/modules/mappers.py
-VariantValidator/modules/rna_formatter.py
 VariantValidator/modules/seq_data.py
 VariantValidator/modules/use_checking.py
 VariantValidator/modules/utils.py
@@ -66,6 +65,7 @@ configuration/travis.ini
 docs/COMMON_ERRORS.md
 docs/DOCKER.md
 docs/INSTALLATION.md
+docs/INSTALLATION_WINDOWS.md
 docs/MANUAL.md
 tests/inputVariants.txt
 tests/test_aa_db_update.py
@@ -74,6 +74,7 @@ tests/test_core.py
 tests/test_exon_numbering.py
 tests/test_gene2transcript.py
 tests/test_inputs.py
+tests/test_inputs_ensembl.py
 tests/test_liftover.py
 tests/test_transcript_selection.py
 tests/test_utils.py

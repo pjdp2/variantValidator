@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: VariantValidator
-Version: 2.1.1.dev82+g74364a3
+Version: 1.0.5.dev349+gb259492.d20230517
 Summary: API for accurate, mapping and formatting of sequence variants using HGVS nomenclature
 Home-page: https://github.com/openvar/variantValidator
 Author: VariantValidator Contributors
@@ -15,7 +15,7 @@ License-File: LICENSE.txt
 
 # VariantValidator
 
-[![codecov](https://codecov.io/gh/openvar/variantValidator/branch/restructuring_py3/graph/badge.svg)](https://codecov.io/gh/openvar/variantValidator) [![Build Status](https://app.travis-ci.com/openvar/variantValidator.svg?branch=master)](https://app.travis-ci.com/github/openvar/variantValidator) [![Join the chat at https://gitter.im/variantValidatorDiscuss/community](https://badges.gitter.im/variantValidatorDiscuss/community.svg)](https://gitter.im/variantValidatorDiscuss/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![codecov](https://codecov.io/gh/openvar/variantValidator/branch/restructuring_py3/graph/badge.svg)](https://codecov.io/gh/openvar/variantValidator) [![Build Status](https://app.travis-ci.com/openvar/variantValidator.svg?branch=master)](https://app.travis-ci.com/github/openvar/variantValidator)
 
 ## About
 
@@ -53,7 +53,7 @@ For sequence variations falling within the open reading frames of genes, Variant
 Please see [LICENSE.txt](LICENSE.txt)
 
 > <LICENSE>
-> Copyright (C) 2016-2023 VariantValidator Contributors
+> Copyright (C) 2016-2022 VariantValidator Contributors
 >
 > This program is free software: you can redistribute it and/or modify
 > it under the terms of the GNU Affero General Public License as

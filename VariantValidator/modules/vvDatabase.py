@@ -46,14 +46,14 @@ class Database(vvDBInsert.Mixin):
         return row
 
     # From data
-    def data_add(self, accession, validator):
+    def data_add(self, accession, validator, genome_build=None):
         """
         # Add accurate transcript descriptions to the database
         :param accession:
         :param validator:
         :return:
         """
-        self.update_transcript_info_record(accession, validator)
+        self.update_transcript_info_record(accession, validator, genome_build=genome_build)
         entry = self.in_entries(accession, 'transcript_info')
         i = 1
         while i in range(10):
@@ -182,6 +182,7 @@ class Database(vvDBInsert.Mixin):
             Therefore, assume they do not and check using Accession.Version Python split 
             """
             enst_accession, enst_version = accession.strip().split('.')
+
             try:
                 genome_build = kwargs['genome_build']
             except KeyError:

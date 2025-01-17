@@ -716,7 +716,6 @@ def hard_right_hgvs2vcf(hgvs_genomic, primary_assembly, hn, reverse_normalizer, 
     :param genomic_ac:
     :return:
     """
-
     # c. must be in n. format
     try:
         hgvs_genomic = vm.c_to_n(hgvs_genomic)  # Need in n. context
@@ -1056,6 +1055,27 @@ def hard_right_hgvs2vcf(hgvs_genomic, primary_assembly, hn, reverse_normalizer, 
                     end_seq_check_mapped = vm.n_to_g(end_seq_check_variant, genomic_ac)
                 else:
                     end_seq_check_mapped = vm.g_to_n(end_seq_check_variant, tx_ac)
+
+                # Look for flank subs that may be missed when naieve mapping c > c made a delins from a sub
+                # This is a hgvs.py quirl for flanking subs in the antisense oriemntation and refers to
+                # https://github.com/openvar/variantValidator/issues/651
+                try:
+                    normalized_end_seq_check_mapped = hn.normalize(end_seq_check_mapped)
+                    normalized_end_seq_check_variant = hn.normalize(end_seq_check_variant)
+                    if (normalized_end_seq_check_mapped.type == 'g' and
+                            normalized_end_seq_check_variant.type == 'n' and
+                            normalized_end_seq_check_mapped.posedit.edit.type == 'sub' and
+                            normalized_end_seq_check_variant == normalized_hgvs_genomic):
+
+                        # double check the original mapping
+                        sub_map = vm.g_to_t(normalized_end_seq_check_mapped,  normalized_end_seq_check_variant.ac)
+                        if sub_map.posedit.edit.type == 'sub':
+                            needs_a_push = True
+                            merged_variant = sub_map
+                            identifying_g_variant = end_seq_check_mapped
+                            break
+                except vvhgvs.exceptions.HGVSUnsupportedOperationError:
+                    pass
 
                 # For genomic_variant mapped onto gaps, we end up with an offset
                 start_offset = False
@@ -2237,7 +2257,7 @@ def hgvs_ref_alt(hgvs_variant, sf):
 
     # inv
     elif 'inv' in str(hgvs_variant.posedit):
-        ref = hgvs_variant.posedit
+        ref = hgvs_variant.posedit.edit.ref
         my_seq = Seq(ref)
         alt = str(my_seq.reverse_complement())
 
@@ -2257,15 +2277,21 @@ def hgvs_ref_alt(hgvs_variant, sf):
     ref_alt_dict = {'ref': ref, 'alt': alt}
     return ref_alt_dict
 
-#
-# def hgvs_to_delins(hgvs_variant_object):
-#     """
-#     Refer to https://github.com/openvar/vv_hgvs/blob/master/examples/creating-a-variant.ipynb
-#     :param hgvs_variant_object:
-#     :return: hgvs_variant_object in raw type = "delins" state
-#     """
-#
-#
+
+def incomplete_alignment_mapping_t_to_g(validator, variant):
+    output = None
+    mapping_options = validator.hdp.get_tx_mapping_options(variant.input_parses.ac)
+    for option in mapping_options:
+        if option[2] == validator.alt_aln_method and "NC_" not in option[1]:
+            in_assembly = seq_data.to_chr_num_refseq(option[1], variant.primary_assembly)
+            if in_assembly is not None:
+                try:
+                    output = validator.vm.t_to_g(variant.input_parses, option[1])
+                    if variant.input_parses.posedit.edit.type == "identity":
+                        output.posedit.edit.alt = output.posedit.edit.ref
+                except vvhgvs.exceptions.HGVSError:
+                    pass
+    return output
 
 # <LICENSE>
 # Copyright (C) 2016-2024 VariantValidator Contributors

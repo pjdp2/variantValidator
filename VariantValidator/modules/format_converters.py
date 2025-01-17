@@ -607,7 +607,7 @@ def indel_catching(variant, validator):
     return False
 
 
-def intronic_converter(variant, validator, skip_check=False):
+def intronic_converter(variant, validator, skip_check=False, uncertain=False):
     """
     Fully HGVS compliant intronic variant descriptions take the format e.g
     NG_007400.1(NM_000088.3):c.589-1G>T. However, hgvs cannot parse and map
@@ -621,6 +621,7 @@ def intronic_converter(variant, validator, skip_check=False):
     """
     compounder = re.compile(r'\((NM_|NR_|ENST)')
     compounder2 = re.compile(r'\(LRG_\d+t')
+
     if compounder.search(variant.quibble) or compounder2.search(variant.quibble):
         # Convert LRG transcript
         if compounder2.search(variant.quibble):
@@ -630,18 +631,36 @@ def intronic_converter(variant, validator, skip_check=False):
             variant.warnings.append(f"Reference sequence {lrg_transcript} updated to {refseq_transcript}")
 
         # Find pattern e.g. +0000 and assign to a variable
-        genomic_ref = variant.quibble.split('(')[0]
+        if uncertain is True:
+            references, variation = variant.quibble.split(':')
+            genomic, transcript = references.split('(')
+            transcript = transcript.replace(')', '')
+            variant.quibble = f"{transcript}:{variation}"
+            return variant
+        else:
+            genomic_ref = variant.quibble.split('(')[0]
         transy = re.search(r"((NM_|ENST|NR_).+)", variant.quibble)
         transy = transy.group(1)
         transy = transy.replace(')', '')
 
         # Add the edited variant for next stage error processing e.g. exon boundaries.
         variant.quibble = transy
+        # Expanding list of exceptions
+
+        try:
+            hgvs_transy = validator.hp.parse_hgvs_variant(transy)
+        except vvhgvs.exceptions.HGVSError:
+            # Allele syntax caught here
+            if "[" in transy and "]" in transy:
+                return genomic_ref
+            else:
+                raise
+
         if skip_check is True:
             return genomic_ref
         else:
             # Check the specified base is correct
-            hgvs_genomic = validator.nr_vm.c_to_g(validator.hp.parse_hgvs_variant(transy), genomic_ref,
+            hgvs_genomic = validator.nr_vm.c_to_g(hgvs_transy, genomic_ref,
                                                   alt_aln_method=validator.alt_aln_method)
         try:
             validator.vr.validate(hgvs_genomic)
@@ -649,8 +668,32 @@ def intronic_converter(variant, validator, skip_check=False):
             if 'Length implied by coordinates must equal sequence deletion length' in str(e) \
                     and not re.search(r'\d+$', variant.quibble):
                 pass
+            elif "does not agree with reference sequence" in str(e):
+                previous_exception = e
+                try:
+                    variant.hn.normalize(hgvs_transy)
+                except vvhgvs.exceptions.HGVSUnsupportedOperationError as e:
+                    if "Unsupported normalization of variants spanning the exon-intron boundary" in str(e):
+                        pass
+                    else:
+                        raise previous_exception
+                else:
+                    raise
             else:
                 validator.vr.validate(hgvs_genomic)
+
+        # Check re-mapping of intronic variants
+        if hgvs_transy.posedit.pos.start.offset != 0 or hgvs_transy.posedit.pos.end.offset != 0:
+            try:
+                check_intronic_mapping = validator.nr_vm.g_to_t(hgvs_genomic, hgvs_transy.ac,
+                                                                alt_aln_method=validator.alt_aln_method)
+                if check_intronic_mapping.posedit.pos == hgvs_transy.posedit.pos:
+                    pass
+                else:
+                    variant.warnings.append(f'ExonBoundaryError: {hgvs_transy.posedit.pos} does not match the exon '
+                                            f'boundaries for the alignment of {hgvs_transy.ac} to {hgvs_genomic.ac}')
+            except vvhgvs.exceptions.HGVSError:
+                pass
 
     logger.debug("HVGS typesetting complete")
 
@@ -666,13 +709,17 @@ def allele_parser(variant, validation, validator):
     descriptions should be re-submitted by the user at the gene or genome level
     """
     caution = ''
-    if (re.search(r':[gcnr].\[', variant.quibble) and ';' in variant.quibble) or (
-            re.search(r':[gcrn].\d+\[', variant.quibble) and ';' in variant.quibble) or ('(;)' in variant.quibble):
 
+    if (re.search(r':[gcnr].\[', variant.quibble) and ';' in variant.quibble) or (
+            re.search(r':[gcrn].\d+\[', variant.quibble) and ';' in variant.quibble) or ('(;)'
+                                                                                         in variant.quibble):
         # Edit compound descriptions
         genomic_ref = intronic_converter(variant, validator, skip_check=True)
         if genomic_ref is None:
-            genomic_reference = False
+            if re.match(r'NC_', variant.quibble):
+                genomic_reference = variant.quibble.split(':')[0]
+            else:
+                genomic_reference = False
         elif 'NC_' in genomic_ref or 'NG_' in genomic_ref:
             genomic_reference = genomic_ref
         else:
@@ -687,8 +734,10 @@ def allele_parser(variant, validation, validator):
                 caution = string + ' updated to ' + reference
             if not re.match(r'^LRG_\d+', variant.quibble):
                 pass
-            elif re.match(r'^LRG_\d+:g.', variant.quibble) or re.match(r'^LRG_\d+:p.', variant.quibble) \
-                    or re.match(r'^LRG_\d+:c.', variant.quibble) or re.match(r'^LRG_\d+:n.', variant.quibble):
+            elif re.match(r'^LRG_\d+:g.', variant.quibble) or re.match(r'^LRG_\d+:p.',
+                                                                       variant.quibble) \
+                    or re.match(r'^LRG_\d+:c.', variant.quibble) or re.match(r'^LRG_\d+:n.',
+                                                                             variant.quibble):
                 lrg_reference, variation = variant.quibble.split(':')
                 refseqgene_reference = validation.db.get_refseq_id_from_lrg_id(lrg_reference)
                 if refseqgene_reference != 'none':
@@ -702,8 +751,10 @@ def allele_parser(variant, validation, validator):
                                   refseqgene_reference + ':' + variation
                     variant.warnings.append(caution)
                     logger.info(caution)
-            elif re.match(r'^LRG_\d+t\d+:c.', variant.quibble) or re.match(r'^LRG_\d+t\d+:n.', variant.quibble) or \
-                    re.match(r'^LRG_\d+t\d+:p.', variant.quibble) or re.match(r'^LRG_\d+t\d+:g.', variant.quibble):
+            elif re.match(r'^LRG_\d+t\d+:c.', variant.quibble) or re.match(r'^LRG_\d+t\d+:n.',
+                                                                           variant.quibble) or \
+                    re.match(r'^LRG_\d+t\d+:p.', variant.quibble) or re.match(r'^LRG_\d+t\d+:g.',
+                                                                              variant.quibble):
                 lrg_reference, variation = variant.quibble.split(':')
                 refseqtranscript_reference = validation.db.get_refseq_transcript_id_from_lrg_transcript_id(
                     lrg_reference)
@@ -725,6 +776,8 @@ def allele_parser(variant, validation, validator):
             try:
                 alleles = validation.hgvs_alleles(variant, genomic_reference)
             except fn.alleleVariantError as e:
+                # import traceback
+                # traceback.print_exc()
                 variant.warnings.append(str(e))
                 logger.warning(str(e))
                 return True

@@ -30477,7 +30477,7 @@ class TestVariantsAuto(TestCase):
         variant = 'NC_000009.11:g.130577961C>T'
         results = self.vv.validate(variant, 'GRCh37', 'NM_001278138.1').format_as_dict(test=True)
         print(results)
-        assert '*=' in results['NM_001278138.1:c.1431G>A']['hgvs_predicted_protein_consequence']['slr']
+        assert '*477=' in results['NM_001278138.1:c.1431G>A']['hgvs_predicted_protein_consequence']['slr']
 
     def test_issue_185(self):
         variant = 'NC_000023.10(NM_004006.2):c.6615_7660del'
@@ -31031,6 +31031,36 @@ class TestVariantsAuto(TestCase):
         assert 'NC_000021.8:g.46924426_46924436del' in \
                results['NM_030582.3:c.3364_3365del'][
                    'primary_assembly_loci']['grch37']['hgvs_genomic_description']
+
+    def test_issue_651a(self):
+        variant = 'NM_017680.6:c.153G>T'
+        select_transcripts = 'all'
+        results = self.vv.validate(variant, 'GRCh38', select_transcripts).format_as_dict(test=True)
+        assert 'NC_000009.12:g.92474742delinsATCA' in \
+               results['NM_017680.6:c.153G>T'][
+                   'primary_assembly_loci']['grch38']['hgvs_genomic_description']
+        assert 'NC_000009.11:g.95237024delinsATCA' in \
+               results['NM_017680.6:c.153G>T'][
+                   'primary_assembly_loci']['grch37']['hgvs_genomic_description']
+
+    def test_issue_651b(self):
+        variant = 'NC_000009.12:g.92474742delinsATCA'
+        select_transcripts = 'NM_017680.6'
+        results = self.vv.validate(variant, 'GRCh38', select_transcripts).format_as_dict(test=True)
+        assert 'NC_000009.12:g.92474742delinsATCA' in \
+               results['NM_017680.6:c.153G>T'][
+                   'primary_assembly_loci']['grch38']['hgvs_genomic_description']
+        assert 'NC_000009.11:g.95237024delinsATCA' in \
+               results['NM_017680.6:c.153G>T'][
+                   'primary_assembly_loci']['grch37']['hgvs_genomic_description']
+
+    def test_issue_intronnic_ref_difference(self):
+        variant = 'NC_000023.11(NM_004006.2):c.720_991dup'
+        select_transcripts = 'NM_004006.2'
+        results = self.vv.validate(variant, 'GRCh38', select_transcripts).format_as_dict(test=True)
+        assert 'NM_004006.2:c.720_991dup' in results.keys()
+
+
 
 # <LICENSE>
 # Copyright (C) 2016-2024 VariantValidator Contributors

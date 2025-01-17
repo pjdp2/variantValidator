@@ -168,6 +168,7 @@ class Mixin(vvMixinConverters.Mixin):
                     # Remove whitespace and quotes
                     my_variant.remove_whitespace()
                     my_variant.remove_quotes()
+                    my_variant.remove_typos()
 
                     # Set the primary_assembly
                     if not my_variant.primary_assembly:
@@ -267,6 +268,8 @@ class Mixin(vvMixinConverters.Mixin):
                                                                               select_transcripts_dict_plus_version)
 
                     except vvhgvs.exceptions.HGVSError as e:
+                        import traceback
+                        traceback.print_exc()
                         checkref = str(e)
                         try:
                             # Test intronic variants for incorrect boundaries (see issue #169)
@@ -936,7 +939,13 @@ class Mixin(vvMixinConverters.Mixin):
                     variant.warnings.append(refseqgene_variant)
                     refseqgene_variant = ''
                     lrg_variant = ''
-                    hgvs_refseqgene_variant = 'false'
+                    if variant.hgvs_refseqgene_variant is not None:
+                        if "NG_" in variant.hgvs_refseqgene_variant:
+                            refseqgene_variant = fn.valstr(self.hp.parse_hgvs_variant(variant.hgvs_refseqgene_variant))
+                        else:
+                            hgvs_refseqgene_variant = 'false'
+                    else:
+                        hgvs_refseqgene_variant = 'false'
                 else:
                     hgvs_refseqgene_variant = self.hp.parse_hgvs_variant(fn.remove_reference_string(refseqgene_variant))
                     rsg_ac = self.db.get_lrg_id_from_refseq_gene_id(str(hgvs_refseqgene_variant.ac))
@@ -1349,21 +1358,6 @@ class Mixin(vvMixinConverters.Mixin):
                                              ) or re.search('p.?', re_parse_protein_single_aa):
                                     re_parse_protein_single_aa = re_parse_protein_single_aa.replace('p.=',
                                                                                                     'p.(=)')
-                                if re.search("p.\(Ter\d+=\)", predicted_protein_variant_dict['tlr']):
-                                    predicted_protein_variant_dict['tlr'] = \
-                                        predicted_protein_variant_dict['tlr'].split("p.")[0]
-                                    predicted_protein_variant_dict['tlr'] = \
-                                        predicted_protein_variant_dict['tlr'] + "p.(Ter=)"
-                                    re_parse_protein_single_aa = re_parse_protein_single_aa.split("p.")[0]
-                                    re_parse_protein_single_aa = re_parse_protein_single_aa + "p.(*=)"
-
-                                elif re.search("p.Ter\d+=", predicted_protein_variant_dict['tlr']):
-                                    predicted_protein_variant_dict['tlr'] = \
-                                        predicted_protein_variant_dict['tlr'].split("p.")[0]
-                                    predicted_protein_variant_dict['tlr'] = \
-                                        predicted_protein_variant_dict['tlr'] + "p.Ter="
-                                    re_parse_protein_single_aa = re_parse_protein_single_aa.split("p.")[0]
-                                    re_parse_protein_single_aa = re_parse_protein_single_aa + "p.*="
 
                                 # Capture instances of variation affecting p.1
                                 if re.search("[A-Z][a-z[a-z]1[?]", predicted_protein_variant_dict['tlr']):
@@ -1636,7 +1630,6 @@ class Mixin(vvMixinConverters.Mixin):
                 for vt in variant.warnings:
                     vt = str(vt)
 
-
                     # Do not warn transcript not part of build if it's not the relevant transcript
                     if "is not part of genome build" in vt and term not in vt:
                         continue
@@ -1700,6 +1693,10 @@ class Mixin(vvMixinConverters.Mixin):
                                         setattr(variant, attribute, json.loads(stringy))
                                 except json.JSONDecodeError:
                                     pass
+
+                # Correct |met=
+                if "|met|met=" in variant.original:
+                    variant.original = variant.original.replace("|met|met=", "|met=")
 
                 # Append to a list for return
                 batch_out.append(variant)

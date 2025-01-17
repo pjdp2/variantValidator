@@ -6,6 +6,7 @@ import vvhgvs.validator
 from . import vvMixinInit
 from . import seq_data
 from . import hgvs_utils
+from . import expanded_repeats
 from Bio import Entrez, SeqIO
 from Bio.Seq import Seq
 from . import utils as fn
@@ -1704,6 +1705,7 @@ class Mixin(vvMixinInit.Mixin):
                 hgvs_v = self.hp.parse_hgvs_variant(hgvs_v)
             except Exception as e:
                 logger.debug("Except passed, %s" % e)
+                pass
 
             # Validate
             try:
@@ -1722,7 +1724,10 @@ class Mixin(vvMixinInit.Mixin):
                                                 "genomic/gene reference "
                                                 "sequence is also provided e.g. NC_000017.11(NM_000088.3):c.589-1G>T")
                 else:
-                    self.vr.validate(hgvs_v)  # Let hgvs errors deal with invalid variants and not hgvs objects
+                    self.vr.validate(hgvs_v) # Let hgvs errors deal with invalid variants and not hgvs objects
+            except AssertionError:
+                raise AlleleSyntaxError(f"AlleleVariantError: {hgvs_v} is not a valid HGVS variant description. Please"
+                                        f" submit individually for additional guidance")
 
             if hgvs_v.type == 'c':
                 store_ref_type = "c"
@@ -1771,7 +1776,6 @@ class Mixin(vvMixinInit.Mixin):
 
         # Loop through the submitted variants and gather the required info
         hgvs_variant_list = cp_hgvs_v
-        prior_variant = None
         for hgvs_v in hgvs_variant_list:
             store_hgvs_v = hgvs_v
             # No intronic positions
@@ -1826,6 +1830,7 @@ class Mixin(vvMixinInit.Mixin):
         # Flag for fame shifts that restore frame
         check_frame_restore = False
         p_reference = None
+
         if hgvs_strict is True:
             # Set merge_within_bases length
             merge_within_bases = 1
@@ -1886,7 +1891,7 @@ class Mixin(vvMixinInit.Mixin):
                         return False
 
                 else:
-                    return False
+                    hgvs_variant_list = cp_hgvs_variant_list
             else:
                 hgvs_variant_list = cp_hgvs_variant_list
 
@@ -1907,6 +1912,7 @@ class Mixin(vvMixinInit.Mixin):
             delins = accession + ':' + seqtype + '.' + str(merge_start_pos) + '_' + str(
                 merge_end_pos) + 'del' + reference_sequence + 'ins' + alt_sequence
         hgvs_delins = self.hp.parse_hgvs_variant(delins)
+
         try:
             hgvs_delins = self.vm.n_to_c(hgvs_delins)
         except Exception as e:
@@ -1919,7 +1925,7 @@ class Mixin(vvMixinInit.Mixin):
             except HGVSUnsupportedOperationError as e:
                 logger.debug("Except passed, %s", e)
 
-        if hgvs_strict is True:
+        if hgvs_strict is True and len(cp_hgvs_variant_list) > 1:
             merge_these = []
             if c_to_g_mapped["mapped"] is True:
                 cp_hgvs_variant_list = []
@@ -2121,6 +2127,7 @@ class Mixin(vvMixinInit.Mixin):
                     pre_alleles = remainder.split('(;)')
                     pre_merges = []
                     alleles = []
+
                     for allele in pre_alleles:
                         if '[' in allele:
                             pre_merges.append(allele)
@@ -2138,7 +2145,6 @@ class Mixin(vvMixinInit.Mixin):
                         my_alleles.append(current_allele)
 
                     # Then Merges
-                    alleles = []
                     remainder = ';'.join(pre_merges)
                     remainder = remainder[1:-1]  # removes the first [ and the last ]
                     alleles = remainder.split('];[')
@@ -2204,15 +2210,42 @@ class Mixin(vvMixinInit.Mixin):
 
                     # Now merge the alleles into a single variant
                     merged_alleles = []
+
                     for each_allele in my_alleles:
                         if '?' in str(each_allele):
                             # NM_004006.2:c.[2376G>C];[?]
                             continue
+                        if 'c.0' in str(each_allele):
+                            # NM_004006.2:c.[2376G>C];[0]
+                            continue
+
+                        # Additional conversions
+                        refresh_allele = []
+                        for each_variant in each_allele:
+                            # Expanded repeats
+                            if re.search("[GATC]+\[\d+]$", each_variant):
+                                expanded_repeat = expanded_repeats.convert_tandem(each_variant, self,
+                                                                                  my_variant.primary_assembly,
+                                                                                  "all")
+
+                                ins_bases = (expanded_repeat["repeat_sequence"] *
+                                             int(expanded_repeat["copy_number"]))
+                                repeat_to_delins = self.hp.parse(f"{expanded_repeat['reference']}:"
+                                                                 f"{expanded_repeat['prefix']}."
+                                                                 f"{expanded_repeat['position']}"
+                                                                 f"delins{ins_bases}")
+
+                                refresh_allele.append(repeat_to_delins)
+                            else:
+                                refresh_allele.append(each_variant)
+
+                        # Refresh with expanded repeats if any before merge
+                        each_allele = refresh_allele
                         merge = []
+
                         allele = str(self.merge_hgvs_3pr(each_allele, my_variant.hn, genomic_reference,
                                                          hgvs_strict=True))
                         merge.append(allele)
-
                         for variant in each_allele:
                             merged_alleles.append([variant])
 
@@ -2222,7 +2255,7 @@ class Mixin(vvMixinInit.Mixin):
             allele_strings = []
             for alleles_l in my_alleles:
                 for allele in alleles_l:
-                    allele_strings.append(allele)
+                    allele_strings.append(str(allele))
             my_alleles = allele_strings
 
             # return

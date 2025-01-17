@@ -5,6 +5,7 @@ import vvhgvs.variantmapper
 import logging
 from . import utils as fn
 import copy
+from . import hgvs_utils
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,7 @@ def refseq_common_mistakes(variant):
         variant.warnings.append(error)
         logger.warning(error)
         return True
+
     # NR_ c.
     if variant.transcript_type == "n" and variant.reftype == ':c.':
         suggestion = variant.quibble.replace(':c.', ':n.')
@@ -33,6 +35,17 @@ def refseq_common_mistakes(variant):
         variant.warnings.append(error)
         logger.warning(error)
         return True
+
+    # NP_ c.
+    if ("NP_" in variant.quibble or "ENSP" in variant.quibble) and (variant.reftype == ':c.' or
+                                                                    variant.reftype == ':n.' or
+                                                                    variant.reftype == ':g.' or
+                                                                    variant.reftype == ':r.'):
+        error = f'Protein reference sequence input as Nucleotide ({variant.reftype}) variant.'
+        variant.warnings.append(error)
+        logger.warning(error)
+        return True
+
     # NM_ n.
     if variant.transcript_type == "c" and variant.reftype == ':n.':
         suggestion = variant.quibble.replace(':n.', ':c.')
@@ -73,7 +86,6 @@ def structure_checks(variant, validator):
     input_parses = validator.hp.parse_hgvs_variant(variant.quibble)
     variant.input_parses = input_parses
     variant.gene_symbol = validator.db.get_gene_symbol_from_transcript_id(variant.input_parses.ac)
-
 
     if variant.gene_symbol == 'none':
         variant.gene_symbol = ''
@@ -188,7 +200,6 @@ def structure_checks_c(variant, validator):
             validator.vr.validate(variant.input_parses)
         except vvhgvs.exceptions.HGVSError as e:
             error = str(e)
-
             if 'datums is ill-defined' in error:
                 called_ref = variant.input_parses.posedit.edit.ref
 
@@ -404,14 +415,15 @@ def structure_checks_c(variant, validator):
                           variant.input_parses.posedit.pos.start.offset != 0):
                         start_offset = f"+{str(variant.input_parses.posedit.pos.start.offset)}"
                         end_offset = f"+{str(variant.input_parses.posedit.pos.start.offset + 1)}"
-                    ins_warning = (f'Insertion length must be 1 e.g. '
-                                   f'{variant.input_parses.posedit.pos.start.base}{start_offset}'
-                                   f'_{str(int(variant.input_parses.posedit.pos.start.base))}{end_offset}'
-                                   f'ins{variant.input_parses.posedit.edit.alt}')
-                    variant.warnings.append(ins_warning)
-                    for warning in variant.warnings:
-                        if warning == "insertion length must be 1":
-                            variant.warnings.remove(warning)
+                    if "(" not in str(variant.input_parses.posedit.pos):
+                        ins_warning = (f'Insertion length must be 1 e.g. '
+                                       f'{variant.input_parses.posedit.pos.start.base}{start_offset}'
+                                       f'_{str(int(variant.input_parses.posedit.pos.start.base))}{end_offset}'
+                                       f'ins{variant.input_parses.posedit.edit.alt}')
+                        variant.warnings.append(ins_warning)
+                        for warning in variant.warnings:
+                            if warning == "insertion length must be 1":
+                                variant.warnings.remove(warning)
                     return True
 
             elif 'base start position must be <= end position' in error:
@@ -470,13 +482,22 @@ def structure_checks_c(variant, validator):
                 variant.warnings.append(error)
                 logger.warning(error)
                 return True
+
         try:
             variant.evm.g_to_t(output, variant.input_parses.ac)
         except vvhgvs.exceptions.HGVSError as e:
-            error = str(e)
-            variant.warnings.append(error)
-            logger.warning(error)
-            return True
+            if "Alignment is incomplete" in str(e):
+                output = hgvs_utils.incomplete_alignment_mapping_t_to_g(validator, variant)
+                if output is None:
+                    error = str(e)
+                    variant.warnings.append(error)
+                    logger.warning(error)
+                    return True
+            else:
+                error = str(e)
+                variant.warnings.append(error)
+                logger.warning(error)
+                return True
 
         # Check that the reference is correct by direct mapping without replacing reference
         check_ref_g = variant.no_replace_vm.t_to_g(variant.input_parses, output.ac,
@@ -526,14 +547,15 @@ def structure_checks_c(variant, validator):
                 variant.warnings.append(error)
                 logger.warning(error)
             if 'insertion length must be 1' in error:
-                ins_warning = (f'Insertion length must be 1 e.g. '
-                               f'{str(int(variant.input_parses.posedit.pos.start.base))}'
-                               f'_{str(int(variant.input_parses.posedit.pos.start.base)+1)}'
-                               f'ins{variant.input_parses.posedit.edit.alt}')
-                variant.warnings.append(ins_warning)
-                for warning in variant.warnings:
-                    if warning == "insertion length must be 1":
-                        variant.warnings.remove(warning)
+                if "(" not in str(variant.input_parses.posedit.pos):
+                    ins_warning = (f'Insertion length must be 1 e.g. '
+                                   f'{str(int(variant.input_parses.posedit.pos.start.base))}'
+                                   f'_{str(int(variant.input_parses.posedit.pos.start.base)+1)}'
+                                   f'ins{variant.input_parses.posedit.edit.alt}')
+                    variant.warnings.append(ins_warning)
+                    for warning in variant.warnings:
+                        if warning == "insertion length must be 1":
+                            variant.warnings.remove(warning)
             return True
 
         except vvhgvs.exceptions.HGVSDataNotAvailableError as e:
